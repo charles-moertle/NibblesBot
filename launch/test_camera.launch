@@ -1,0 +1,4 @@
+<launch>
+	<node pkg="nibbles_test" type="test_camera.py" name="nibbles_test_node" output="screen">
+	</node>
+</launch>
