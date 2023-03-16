@@ -1,0 +1,4 @@
+<launch>
+    <node pkg="nibbles_test" type="test_laser.py" name="nibbles_laser_node" output="screen">
+    </node>
+</launch>

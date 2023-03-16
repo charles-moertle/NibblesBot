@@ -1,0 +1,5 @@
+<launch>
+    <!-- My Package launch file -->
+    <node pkg="nibbles_test" type="test_move.py" name="nibbles_move_node"  output="screen">
+    </node>
+</launch>
