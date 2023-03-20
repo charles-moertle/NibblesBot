@@ -1,4 +1,0 @@
-<launch>
-	<node pkg="rosnet_test" type="rosnet_test.py" name="rosnet_test_node" output="screen">
-	</node>
-</launch>
