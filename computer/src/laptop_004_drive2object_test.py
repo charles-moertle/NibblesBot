@@ -35,6 +35,7 @@ def drive():
           move.linear.x = 0.1
      else:
           move.linear.x = 0.0
+          move.angular.z = 0.0
      pub.publish(move)
 
 def main():
