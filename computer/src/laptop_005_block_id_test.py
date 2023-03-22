@@ -11,24 +11,18 @@ from queue import Queue
 import cv2 as cv
 import numpy as np
 
-global imgs
-
 bridge=CvBridge()
 def shutdown():
      cv.destroyAllWindows()
      rospy.loginfo("shutting down...")
 
-def callback(data):
-     global imgs
-     rospy.loginfo("callback")
-     imgs = bridge.imgmsg_to_cv2(data,"passthrough")
 
 
 class CameraCV:
     def __init__(self):
         self._width = int(640)
         self._height = int(480)
-
+        self._imgs = None
         # ORB Training images
         path = __file__.split("/")
         path = "/".join(path[:len(path) - 1])
@@ -50,10 +44,15 @@ class CameraCV:
         # Need to find exact green lower and upper hsv
         self._lower_green = np.array([100, 100, 100])
         self._upper_green = np.array([200, 200, 255])
+        # image node subscriber
+        sub=rospy.Subscriber("/nibbles_img",Image,self.callback)
+
+    def callback(self, data):
+        rospy.loginfo("callback")
+        self._imgs = bridge.imgmsg_to_cv2(data,"passthrough")
 
     def get_camera_frame(self):
-        global imgs
-        return imgs
+        return self._imgs
 
     def get_height(self):
         return self._height
@@ -103,8 +102,9 @@ class CameraCV:
                 cv.circle(frame_contour, center, radius, (255, 255, 255), -1)
 
     def boxes_with_centroid(self):
-            global imgs
-            frame = imgs
+            frame = self._imgs
+            if frame is None:
+                 return "No Images"
             frame_contour = frame.copy()
 
             blur = cv.GaussianBlur(frame, (5, 5), 1)
@@ -218,7 +218,6 @@ class CameraCV:
 def main():
     rospy.init_node("Block_id_node",anonymous=True)
     rospy.on_shutdown(shutdown)
-    sub=rospy.Subscriber("/nibbles_img",Image,callback)
     time.sleep(3)
     cam = CameraCV()
     rate=rospy.Rate(1)
