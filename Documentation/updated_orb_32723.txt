@@ -1,20 +1,36 @@
-# -*- coding: utf-8 -*-
+#! /usr/bin/env python3
 
+import os.path
+import rospy
+import math
 import cv2 as cv
 import numpy as np
 import time
+from geometry_msgs.msg import Point, Twist
+from sensor_msgs.msg import Image
+from cv_bridge import Cvbridge, CvBridgeError
+from queue import Queue
+
+
+def shutdown():
+    cv.destroyAllWindows()
+    rospy.loginfo("shutting down...")
+
 
 
 class CameraCV:
     def __init__(self):
-        self._camera = cv.VideoCapture(1)
-        self._width = int(self._camera.get(3))
-        self._height = int(self._camera.get(4))
+        self._bridge = CvBridge()
+        self._imgs = None
+        self._width = int(640)
+        self._height = int(480)
 
         # ORB Training images
+        path = __file__.split("/")
+        path = "/".join(path[:len(path) - 1])
         self._training_images = {
-            "A": cv.imread("a_pixel.jpg", 1),
-            "B": cv.imread("b_pixel.jpg", 1),
+            "A": cv.imread(path + "/training_imgs/a_pixel.jpg", 1),
+            "B": cv.imread(path + "/training_imgs/b_pixel.jpg", 1),
         }
 
         # Training image descriptors
@@ -25,14 +41,10 @@ class CameraCV:
 
         self._lower_black = np.array([0, 0, 0])
         self._upper_black = np.array([139, 92, 59])
+        sub = rospy.Subscriber("/nibbles_img",Image,self.callback)
 
-    def get_camera_frame(self):
-        success = False
-
-        while success is not True:
-            success, frame = self._camera.read()
-
-        return frame
+    def callback(self, data):
+        self._imgs = self._bridge.imgmsg_to_cv2(data,"passthrough")
 
     def get_height(self):
         return self._height
@@ -67,7 +79,7 @@ class CameraCV:
         return centroid_of_squares
 
     def boxes_with_centroid(self):
-        frame = self.get_camera_frame()
+        frame = self._imgs
         frame_contour = frame.copy()
 
         blur = cv.GaussianBlur(frame, (5, 5), 1)
@@ -214,26 +226,14 @@ class CameraCV:
 
 
 def main():
+    rospy.init_node("Block-id_node",anonymous=True)
+    rospy.on_shutdown(shutdown)
+    time.sleep(3)
     cam = CameraCV()
-    #cam.find_training_descriptors()
-
-    while True:
-
-        #print(f"This is the dict: {cam.boxes_with_centroid()}")
-
-        #centroid_of_squares = cam.boxes_with_centroid()
-        #print(f"This is the centroids: {centroid_of_squares}")
-        #print(f"This is the dict: {cam.orb_detection(centroid_of_squares)}")
-
-        mask_frame = cam.mask_frame()
-        pixels = cam.count_white_pixels()
-        print(f"This is the number of white pixels: {pixels}\n")
-        cv.imshow("Frame", mask_frame)
-
-        if cv.waitKey(1) == ord('q'):
-            #cv.imwrite("b_with_camera.jpg", frame)
-            cam.release_camera()
-            break
+    rate=rospy.Rate(4)
+    while not rospy.is_shutdown():
+        cam.boxes_with_centroid()
+        rate.sleep()
 
 
 if __name__ == "__main__":
