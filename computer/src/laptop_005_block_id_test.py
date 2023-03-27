@@ -220,7 +220,7 @@ def main():
     rospy.on_shutdown(shutdown)
     time.sleep(3)
     cam = CameraCV()
-    rate=rospy.Rate(1)
+    rate=rospy.Rate(4)
     while not rospy.is_shutdown():
         cam.boxes_with_centroid()
         rate.sleep()

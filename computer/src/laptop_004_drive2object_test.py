@@ -11,8 +11,8 @@ from queue import Queue
 
 move=Twist()
 pub=rospy.Publisher("/cmd_vel",Twist,queue_size=1)
-target_x=0.0
-target_y=0.0
+target_x=999.0
+target_y=999.0
 
 
 def shutdown():
@@ -27,11 +27,15 @@ def drive():
      global target_x, target_y
      midpoint = 320
      contact_point=390
-     adj_x = midpoint - target_x
-     correction = adj_x / 200
+     rospy.loginfo(f"x: {target_x}   y: {target_y}")
+     if target_x != 999.0:
+         adj_x = midpoint - target_x
+         correction = adj_x / 200
+     else:
+          correction = 0.0
      move.angular.z = correction
      rospy.loginfo("here")
-     if target_y < contact_point:
+     if target_y < contact_point or target_y == 999.0:
           move.linear.x = 0.1
      else:
           move.linear.x = 0.0
@@ -39,11 +43,11 @@ def drive():
      pub.publish(move)
 
 def main():
+     rospy.on_shutdown(shutdown)
      rospy.init_node("fast_af_boi",anonymous=True)
      coord_sub=rospy.Subscriber("/coord_centroid",Point,target_callback)
      rate=rospy.Rate(2)
      while not rospy.is_shutdown():
-          rospy.on_shutdown(shutdown)
           drive()
           rate.sleep()
      rospy.spin()
