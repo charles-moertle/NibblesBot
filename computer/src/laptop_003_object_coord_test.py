@@ -17,8 +17,8 @@ def nothing(x):
 
 cv.namedWindow("Thresholds for Canny")
 cv.resizeWindow("Thresholds for Canny", 640, 240)
-cv.createTrackbar("Threshold1", "Thresholds for Canny", 47, 255, nothing)
-cv.createTrackbar("Threshold2", "Thresholds for Canny", 38, 255, nothing)
+cv.createTrackbar("Threshold1", "Thresholds for Canny", 100, 255, nothing)
+cv.createTrackbar("Threshold2", "Thresholds for Canny", 255, 255, nothing)
 bridge=CvBridge()
 
 def shutdown():
@@ -29,6 +29,7 @@ def callback(data):
      global frame
      frame=bridge.imgmsg_to_cv2(data, "passthrough")
      rospy.loginfo(f"frame size: {frame.size}")
+     frame = frame [0:380 , 0:640]
      cv.imshow('frame',frame)
      frameContour = frame.copy()
 
@@ -63,7 +64,7 @@ def getContours(frame, frameContour):
     for contour in contours:
         area = cv.contourArea(contour)
 
-        if area > 2000 and area < 8000:
+        if area > 2000:
             rospy.loginfo(f"Area: {area}")
             cv.drawContours(frameContour, contour, -1, (255, 255, 0), 3)
             perimeter = cv.arcLength(contour, True)

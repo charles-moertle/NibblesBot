@@ -8,7 +8,7 @@ import numpy as np
 import time
 from geometry_msgs.msg import Point, Twist
 from sensor_msgs.msg import Image
-from cv_bridge import Cvbridge, CvBridgeError
+from cv_bridge import CvBridge, CvBridgeError
 from queue import Queue
 
 
@@ -24,6 +24,7 @@ class CameraCV:
         self._imgs = None
         self._width = int(640)
         self._height = int(480)
+        self._coords = rospy.Publisher("/coord_centroid",Point,queue_size=1)
 
         # ORB Training images
         path = __file__.split("/")
@@ -41,10 +42,13 @@ class CameraCV:
 
         self._lower_black = np.array([0, 0, 0])
         self._upper_black = np.array([139, 92, 59])
-        sub = rospy.Subscriber("/nibbles_img",Image,self.callback)
+        self._sub = rospy.Subscriber("/nibbles_img",Image,self.callback)
 
     def callback(self, data):
         self._imgs = self._bridge.imgmsg_to_cv2(data,"passthrough")
+
+    def get_camera_frame(self):
+        return self._imgs
 
     def get_height(self):
         return self._height
@@ -60,7 +64,7 @@ class CameraCV:
         for contour in contours:
             area = cv.contourArea(contour)
 
-            if area > 1500:
+            if area > 3500 and area < 6000:
                 cv.drawContours(frame_contour, contour, -1, (255, 255, 0), 3)
                 perimeter = cv.arcLength(contour, True)
                 approx = cv.approxPolyDP(contour, 0.02 * perimeter, True)
@@ -74,12 +78,16 @@ class CameraCV:
                 # Drawing centroid circles in each box
                 center = (x + width // 2, y + height // 2)
                 radius = 5
+                target_point=Point(x + width // 2, y + height // 2, 0.0)
+                self._coords.publish(target_point)
                 cv.circle(frame_contour, center, radius, (255, 255, 255), -1)
 
         return centroid_of_squares
 
     def boxes_with_centroid(self):
         frame = self._imgs
+        if frame is None:
+            return "No Images"
         frame_contour = frame.copy()
 
         blur = cv.GaussianBlur(frame, (5, 5), 1)
@@ -97,10 +105,10 @@ class CameraCV:
         center = (self._width // 2, self._height)
         radius = 5
         cv.circle(frame_contour, center, radius, (0, 0, 0), -1)
-
+        rospy.loginfo("here")
         cv.imshow("Frame", frame)
         cv.imshow("Frame Contour", frame_contour)
-
+        cv.waitKey(1)
         return centroid_of_squares
 
     # !!! Must be called before using orb_detection !!!
@@ -226,11 +234,11 @@ class CameraCV:
 
 
 def main():
-    rospy.init_node("Block-id_node",anonymous=True)
+    rospy.init_node("Block_id_node",anonymous=True)
     rospy.on_shutdown(shutdown)
     time.sleep(3)
     cam = CameraCV()
-    rate=rospy.Rate(4)
+    rate=rospy.Rate(3)
     while not rospy.is_shutdown():
         cam.boxes_with_centroid()
         rate.sleep()
