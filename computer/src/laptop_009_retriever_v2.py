@@ -56,7 +56,7 @@ class Robot:
         self._blocks_found = 0
         self._area_size_x = 0.75
         self._area_size_y = 0.75
-        self._blocks_total = 2
+        self._blocks_total = 3
 
     def target_callback(self, data):
         (self._target_x, self._target_y) = data.x, data.y
@@ -112,7 +112,7 @@ class Robot:
             self.roomba()
         elif self._block_found is False and self._block_captured is False and self._going_home is False:
             self.find_block()
-            rospy.loginfo("finding block")
+#            rospy.loginfo("finding block")
         elif self._block_found is True and self._block_captured is False and self._going_home is False:
             self.drive_to_object()
  #           rospy.loginfo("Driving 2 Block")
@@ -141,7 +141,7 @@ class Robot:
     def roomba(self):
         if self._last_direction == 0.0:
             direction = True
-        elif abs(self._last_direction) == math.pi:
+        else:
             direction = False
 
         self.all_stop()
@@ -238,8 +238,10 @@ class Robot:
         x = self._last_x - self._curr_x
         y = self._last_y - self._curr_y
         self._curr_heading = (math.atan(y / x))
+        if x < 0.0:
+            self._curr_heading = self._curr_heading - math.pi
         rospy.loginfo(f"Heading = {self._curr_heading}")
-        rospy.loginfo(f"Yaw = {self._yaw}")
+        rospy.loginfo(f"Yaw = {self._yaw * math.pi / 180}")
         if (-math.pi / 2) < self._curr_heading < (math.pi / 2):
             self.turn(True,True)
         else:
@@ -259,15 +261,15 @@ class Robot:
 
 
     def correct(self,resuming = False):
-
-        while not math.isclose( self._curr_x, self._stage_x, abs_tol = 0.02) and not math.isclose(self._curr_y, 0.02, abs_tol = 0.02):
+#not math.isclose( self._curr_x, self._stage_x, abs_tol = 0.02) and 
+        while not math.isclose(self._curr_y, 0.06, abs_tol = 0.02):
 
             if resuming is False:
                 self.get_heading()
             elif resuming is True:
                 self.get_heading(resuming)
             if resuming:
-                if math.isclose(self._adj_offset_x, self._last_x, abs_tol = 0.05) and math.isclose(self._adj_offset_y, self._last_y, abs_tol = 0.05):
+                if math.isclose(self._adj_offset_x, self._last_x, abs_tol = 0.06) and math.isclose(self._adj_offset_y, self._last_y, abs_tol = 0.06):
                     break
             adj_z=self._curr_heading - self._yaw
             correction = adj_z / 200
@@ -278,18 +280,25 @@ class Robot:
         self._is_home = True
 
     def get_heading(self, resuming = False):
+       # rospy.loginfo(f"stage = {self._staging}  resume = {resuming}")
         if self._staging is True and resuming is False:
-            self._curr_heading = math.atan((self._adj_offset_y - 0.05) / (self._adj_offset_x - self._stage_x))
+            if self._curr_x - self._stage_x < 0.0:
+                self._curr_heading = math.atan((self._curr_y - 0.05) / (self._curr_x - self._stage_x))
+            elif self._curr_x - self._stage_x ==0.0:
+                self._curr_heading = math.atan((self._curr_y - 0.05) / 0.01)
+            elif self._curr_x - self._stage_x > 0.0:
+                self._curr_heading = math.atan((self._curr_y - 0.05) / (self._curr_x - self._stage_x)) + math.pi
         elif self._staging is True and resuming is True:
-            self._curr_heading = -math.atan((self._last_y - self._curr_y) / (self._last_x - self._curr_x))
-        else:
-            self._curr_heading = math.atan(self._adj_offset_y / self._adj_offset_x)
-
-        if self._curr_heading > 0.0:
-            self._curr_heading = self._curr_heading - math.pi
-        else:
-            self._curr_heading = self._curr_heading + math.pi
-
+            if self._last_x - self._curr_x < 0.0:
+                self._curr_heading = math.atan((self._last_y - self._curr_y) / (self._last_x - self._curr_x)) - math.pi
+            elif self._last_x - self._curr_x == 0.0:
+                self._curr_heading = -1 * math.atan((self._last_y - self._curr_y) / (0.01))
+            elif self._last_x - self._curr_x > 0.0:
+                self._curr_heading = -1 * math.atan((self._last_y - self._curr_y) / (self._last_x - self._curr_x))
+#        else:
+#            self._curr_heading = math.atan(self._adj_offset_y / self._adj_offset_x)
+        rospy.loginfo(f"heading = {self._curr_heading}")
+#        rospy.loginfo(f"x: {self._last_x}  y: {self._last_y}")
 
     def turn(self,clockwise=False,row_end=False):
         while(True):
@@ -306,8 +315,9 @@ class Robot:
 
             self._pub.publish(self._move)
 
-            if(self._curr_heading==math.pi):
-                if(math.isclose( abs(self._yaw), self._curr_heading, abs_tol = 0.0175)):
+            if(abs(self._curr_heading)==math.pi):
+                self._curr_heading = -(math.pi/100) * 95
+                if(math.isclose( self._yaw, self._curr_heading, abs_tol = 0.0175)):
                     break
             else:
                 if(math.isclose( self._yaw, self._curr_heading, abs_tol = 0.0175)):
