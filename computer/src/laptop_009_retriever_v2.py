@@ -26,11 +26,16 @@ class Robot:
         self._pub=rospy.Publisher("/cmd_vel",Twist,queue_size=1)
         self._diagnostic = rospy.Publisher("/nibbles_diag", String,queue_size=1)
         self._move=Twist()
-        self._target_x=999.0
-        self._target_y=999.0
-        self._origin=(0.0, 0.0)
+        self._rate = rospy.Rate(2)
+
+
+        #midpoint for the frame size
         self._midpoint = 320.0
+
+        #threshold for block capture in the frame
         self._contact_point = 250.0
+
+        #logic flags
         self._block_captured = False
         self._block_found = False
         self._going_home = False
@@ -39,11 +44,17 @@ class Robot:
         self._staging = True
         self._is_complete = False
         self._rtb_flag = False
-        self._rate = rospy.Rate(2)
+
+
+        #holds the data from the callback functions
+        self._target_x = 999.0
+        self._target_y = 999.0
         self._img = None
         self._yaw = 0.0
         self._curr_x = 0.0
         self._curr_y = 0.0
+
+        #parameters for holding derived information for each run
         self._curr_heading = 0.0
         self._x_offset = 0.0
         self._y_offset = 0.0
@@ -54,6 +65,8 @@ class Robot:
         self._stage_x = 0.20
         self._last_direction = 0.0
         self._blocks_found = 0
+
+        #search area and number of blocks settings
         self._area_size_x = 0.75
         self._area_size_y = 0.75
         self._blocks_total = 3
@@ -94,7 +107,7 @@ class Robot:
     def next_stage(self):
         self._stage_x = self._stage_x + 0.2
 
-
+    #main logic for the search and retrieval
     def drive(self):
         count = 6
         while count > 0 and self._started is False:
@@ -106,7 +119,7 @@ class Robot:
         self._started = True
         if self._blocks_found >= self._blocks_total:
             self._is_complete = True
-        elif self._rtb_flag is False and self._adj_offset_x >= self._area_size_x or self._adj_offset_x <= 0.0 or self._adj_offset_y >= self._area_size_y:
+        elif self._rtb_flag is False and self._adj_offset_x >= self._area_size_x or self._adj_offset_x <= 0.0 or self._adj_offset_y <= -self._area_size_y:
             self._last_direction = self._curr_heading
             rospy.loginfo("Turning")
             self.roomba()
@@ -137,7 +150,7 @@ class Robot:
             self._is_complete = True
             rospy.loginfo("Done")
 
-
+    #turns the robot around at the end of each row
     def roomba(self):
         if self._last_direction == 0.0:
             direction = True
@@ -169,7 +182,7 @@ class Robot:
         self.all_stop()
 
 
-
+    #check if object detected and sets last position
     def find_block(self):
         self._move.linear.x = 0.04
         self._move.angular.z = 0.0
@@ -179,7 +192,7 @@ class Robot:
             self.last_position()
 #        rospy.loginfo("Finding block")
 
-
+    #drives to detected object
     def drive_to_object(self):
 #        rospy.loginfo(f"X:  {self._target_x}  Y: {self._target_y}")
         if self._target_x != 999.0:
@@ -200,7 +213,7 @@ class Robot:
             self.all_stop()
         self._pub.publish(self._move)
 
-
+    #returns to staging point or origin point
     def rtb(self, home_point = False):
  #       rospy.loginfo("RTB")
         if self._curr_heading != 99.0 and self._going_home is False :
@@ -215,6 +228,8 @@ class Robot:
            self.correct()
            self._is_home = True
 
+
+    #backs away from block
     def back_away(self):
         self._move.angular.z = 0.0
         self._move.linear.x = -0.05
@@ -225,7 +240,7 @@ class Robot:
             self._rate.sleep()
         self.all_stop()
 
-
+    #face last direction of travel
     def face_last_direction(self):
         self._curr_heading = self._last_direction
         if self._curr_heading == 0.0:
@@ -233,7 +248,7 @@ class Robot:
         else:
             self.turn(True,True)
 
-
+    #face where the block was detected
     def face_last_position(self):
         x = self._last_x - self._curr_x
         y = self._last_y - self._curr_y
@@ -247,7 +262,7 @@ class Robot:
         else:
             self.turn(False,True)
 
-
+    #stops all motion
     def all_stop(self):
         self._move.angular.z = 0.0
         self._move.linear.x = 0.0
@@ -259,7 +274,7 @@ class Robot:
    #     else:
    #         return False
 
-
+    #uses heading to drive to coordinate
     def correct(self,resuming = False):
 #not math.isclose( self._curr_x, self._stage_x, abs_tol = 0.02) and 
         while not math.isclose(self._curr_y, 0.06, abs_tol = 0.02):
@@ -279,6 +294,8 @@ class Robot:
         self.all_stop()
         self._is_home = True
 
+
+    #gets direction to coordinate or object
     def get_heading(self, resuming = False):
        # rospy.loginfo(f"stage = {self._staging}  resume = {resuming}")
         if self._staging is True and resuming is False:
@@ -300,6 +317,8 @@ class Robot:
         rospy.loginfo(f"heading = {self._curr_heading}")
 #        rospy.loginfo(f"x: {self._last_x}  y: {self._last_y}")
 
+
+    #turns the robot either in place or while moving forward
     def turn(self,clockwise=False,row_end=False):
         while(True):
             if row_end is False:
